@@ -1,0 +1,530 @@
+<html>
+
+<head>
+    <title>PathFinding</title>
+</head>
+
+<body>
+
+    <select id="algo">
+        <option value="1">A Star</option>
+        <option value="2">Dijkstra</option>
+        <option value="3">Breadth First Search</option>
+        <option value="4">Depth First Search</option>
+    </select>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        var canvas = document.getElementById('canvas');
+        var selectBtn = document.getElementById('algo');
+        var ctx = canvas.getContext('2d');
+
+        canvas.width = 820;
+        canvas.height = 920;
+        var rownmbr = 16;
+        var colnmbr = 16;
+        var row = 10;
+        var col = 10;
+        var width = (canvas.width - 20) / rownmbr;
+        var height = (canvas.height - 120) / rownmbr;
+        var grid = [];
+        var done = false;
+
+        window.onload = function () {
+            setInterval(function () { game() }, 1000 / 7);
+        }
+
+        // FOR DRAWING RECTANGLES
+        function drawRect(x, y, width, height, color, insidecolor, fill) {
+            if (fill) {
+                ctx.fillStyle = color;
+                ctx.fillRect(x, y, width, height);
+                ctx.lineWidth = 7;
+                ctx.strokeStyle = 'black';
+                ctx.strokeRect(x, y, width, height);
+            } else {
+                ctx.fillStyle = insidecolor;
+                ctx.fillRect(x, y, width, height);
+                ctx.lineWidth = 7;
+                ctx.strokeStyle = 'black';
+                ctx.strokeRect(x, y, width, height);
+            }
+        }
+
+        // SQUARE CLASS
+        class Square {
+            constructor(x, y, width, height, color, insidecolor, fill, i, j) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.color = color;
+                this.insidecolor = insidecolor;
+                this.fill = fill;
+                this.wall = false;
+                this.parent = null;
+                this.visited = false;
+                this.i = i;
+                this.j = j;
+                this.g = 999999;
+                this.h = null;
+            }
+
+            clicked(x, y) {
+                if (x > this.x && x < (this.x + this.width) && y > this.y && y < (this.y + this.height)) {
+                    return true;
+                }
+                return false;
+            }
+
+            draw() {
+                drawRect(this.x, this.y, this.width, this.height, this.color, this.insidecolor, this.fill);
+            }
+
+        }
+
+        //  MAKING THE GRID
+        for (i = 0; i < colnmbr; i++) {
+            grid[i] = [];
+        }
+
+        for (i = 0; i < rownmbr; i++) {
+            col = 10;
+            for (j = 0; j < colnmbr; j++) {
+                grid[i][j] = new Square(col, row, width, height, 'black', 'mediumpurple', false, i, j);
+                grid[i][j].draw();
+                col = col + width;
+            }
+            row = row + height;
+        }
+
+        // VARIABLES FOR POINT A AND POINT B
+        var placeA = new Square(110, 810, width, height, 'green', 'grey', false, null, null);
+        var currentA = null;
+        var placeB = new Square(660, 810, width, height, 'red', 'grey', false, null, null);
+        var currentB = null;
+
+        // FUNCTION TO DETECT CLICKS AND WHAT HAPPENS
+        document.onclick = function () {
+            var bod = canvas.getBoundingClientRect();
+            var mousex = event.clientX - bod.left;
+            var mousey = event.clientY - bod.top;
+            //console.log('x: ' + mousex + ' , ' + 'y: ' + mousey);
+
+            // RESETTING THE DONE FUNCTION SO THE ALGORITHM RUNS EVERY CLICK AND NOT CONTINUALLY
+            done = false;
+
+            // SQUARES CLICKED
+            for (i = 0; i < rownmbr; i++) {
+                for (j = 0; j < colnmbr; j++) {
+                    if (grid[i][j].clicked(mousex, mousey)) {
+                        if (currentA == grid[i][j]) {
+                            currentA = null;
+                        } else if (currentB == grid[i][j]) {
+                            currentB = null;
+                        }
+                        if (placeA.fill) {
+                            if (!grid[i][j].fill) {
+                                if (currentA != null) {
+                                    currentA.color = 'black';
+                                    currentA.fill = false;
+                                }
+                                currentA = grid[i][j];
+                                currentA.color = 'green';
+                                currentA.fill = true;
+                                currentA.wall = false;
+                            } else {
+                                grid[i][j].fill = false;
+                                grid[i][j].wall = false;
+                            }
+                        } else if (placeB.fill) {
+                            if (!grid[i][j].fill) {
+                                if (currentB != null) {
+                                    currentB.color = 'black';
+                                    currentB.fill = false;
+                                }
+                                currentB = grid[i][j];
+                                currentB.color = 'red';
+                                currentB.fill = true;
+                                currentB.wall = false;
+                            } else {
+                                grid[i][j].fill = false;
+                                grid[i][j].wall = false;
+                            }
+                        } else {
+                            if (!grid[i][j].fill) {
+                                grid[i][j].color = 'black';
+                                grid[i][j].fill = true;
+                                grid[i][j].wall = true;
+                            } else {
+                                grid[i][j].fill = false;
+                                grid[i][j].wall = false;
+                            }
+                        }
+                    }
+                }
+            }
+            if (placeA.clicked(mousex, mousey)) {
+                if (placeB.fill) {
+                    placeB.fill = false;
+                }
+                if (!placeA.fill) {
+                    placeA.fill = true;
+                } else {
+                    placeA.fill = false;
+                }
+            }
+            if (placeB.clicked(mousex, mousey)) {
+                if (placeA.fill) {
+                    placeA.fill = false;
+                }
+                if (!placeB.fill) {
+                    placeB.fill = true;
+                } else {
+                    placeB.fill = false;
+                }
+            }
+        }
+
+        // RESETTING THE VARIABLES INSIDE EVERY SQUARE OBJECT
+        function reset() {
+            for (var i = 0; i < rownmbr; i++) {
+                for (var j = 0; j < colnmbr; j++) {
+                    grid[i][j].insidecolor = 'mediumpurple';
+                    grid[i][j].parent = null;
+                    grid[i][j].visited = false;
+                    grid[i][j].g = 999999;
+                    grid[i][j].draw();
+                }
+            }
+        }
+
+        // SORTING THE QUEUE DEPENDING IF IT'S FOR DIJKSTRA OR A STAR
+        function sortqueue(queue, astar) {
+            var x;
+            if (!astar) {
+                for (i = 0; i < queue.length; i++) {
+                    for (j = i + 1; j < queue.length; j++) {
+                        if (queue[i].g > queue[j].g) {
+                            x = queue[i];
+                            queue[i] = queue[j];
+                            queue[j] = x;
+                        }
+                    }
+                }
+            } else {
+                for (i = 0; i < queue.length; i++) {
+                    for (j = i + 1; j < queue.length; j++) {
+                        if (queue[i].g + queue[i].h > queue[j].g + queue[j].h) {
+                            x = queue[i];
+                            queue[i] = queue[j];
+                            queue[j] = x;
+                        }
+                    }
+                }
+            }
+        }
+
+        // DEPTH FIRST SEARCH
+        function DFS(start, end) {
+            reset();
+            var current = start;
+            var ci, cj;
+            var noPath = false;
+            while (!done) {
+                current.visited = true;
+                ci = current.i;
+                cj = current.j;
+                for (var i = -1; i <= 1; i++) {
+                    for (var j = -1; j <= 1; j++) {
+                        if (ci + i > -1 && ci + i < rownmbr && cj + j > -1 && cj + j < colnmbr && !(i == 0 && j == 0)) {
+                            var temp = grid[ci + i][cj + j];
+                            if (!temp.wall && temp != end && !temp.visited) {
+                                temp.insidecolor = 'purple';
+                                temp.parent = current;
+                                current = temp;
+                                temp.draw();
+                                i = j = 2;
+                            } else if (temp.i == end.i && temp.j == end.j) {
+                                temp.parent = current;
+                                current = temp;
+                                done = true;
+                                i = j = 2;
+                            } else if (i == 1 && j == 1 && current.parent != null) {
+                                current = current.parent;
+                            }
+                        } else if (i == 1 && j == 1 && current.parent != null) {
+                            current = current.parent;
+                        }
+                    }
+                }
+                if (current == start) {
+                    done = true;
+                }
+            }
+
+
+            current = current.parent;
+            while (current != start && current != null && !noPath) {
+                current.insidecolor = 'white';
+                current.draw();
+                current = current.parent;
+            }
+        }
+
+        // BREADTH FIRST SEARCH
+        function BFS(start, end) {
+            reset();
+            var current = start;
+            var queue = [];
+            var ci, cj;
+            var noPath = false;
+            while (!done) {
+                ci = current.i;
+                cj = current.j;
+                for (var i = -1; i <= 1; i++) {
+                    for (var j = -1; j <= 1; j++) {
+                        if (ci + i > -1 && ci + i < rownmbr && cj + j > -1 && cj + j < colnmbr && !(i == 0 && j == 0)) {
+                            var temp = grid[ci + i][cj + j];
+                            if (!temp.wall && temp != end && !temp.visited) {
+                                temp.insidecolor = 'purple';
+                                temp.draw();
+                                temp.parent = current;
+                                temp.visited = true;
+                                queue.push(temp);
+                            } else if (temp.i == end.i && temp.j == end.j) {
+                                temp.parent = current;
+                                current = temp;
+                                done = true;
+                            }
+                        }
+                    }
+                }
+                current.visited = true;
+                if (!done) {
+                    if (queue.length > 0) {
+                        current = queue.shift();
+                    } else {
+                        done = true;
+                        noPath = true;
+                    }
+                }
+            }
+
+            current = current.parent;
+            while (current != start && current != null && !noPath) {
+                current.insidecolor = 'white';
+                current.draw();
+                current = current.parent;
+            }
+        }
+
+        // DIJKSTRA
+        function DIJKSTRA(start, end) {
+            reset();
+            start.g = 0;
+            var current = start;
+            var queue = [];
+            var ci, cj;
+            var noPath = false;
+            while (!done) {
+                ci = current.i;
+                cj = current.j;
+                for (var i = -1; i <= 1; i++) {
+                    for (var j = -1; j <= 1; j++) {
+                        if (ci + i > -1 && ci + i < rownmbr && cj + j > -1 && cj + j < colnmbr && !(i == 0 && j == 0)) {
+                            var temp = grid[ci + i][cj + j];
+                            if (!temp.wall && !temp.visited) {
+                                if (i == j || (i == -1 && j == 1) || (i == 1 && j == -1)) {
+                                    if (temp.g > current.g + 14) {
+                                        temp.g = current.g + 14;
+                                        temp.insidecolor = 'purple';
+                                        temp.draw();
+                                        temp.parent = current;
+                                        temp.visited = true;
+                                        queue.push(temp);
+                                    }
+                                } else {
+                                    if (temp.g > current.g + 10) {
+                                        temp.g = current.g + 10;
+                                        temp.insidecolor = 'purple';
+                                        temp.draw();
+                                        temp.parent = current;
+                                        temp.visited = true;
+                                        queue.push(temp);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                sortqueue(queue, false);
+                current.visited = true;
+                if (!done) {
+                    if (queue.length > 0) {
+                        current = queue.shift();
+                    } else {
+                        done = true;
+                        noPath = true;
+                    }
+                }
+                if (current.i == end.i && current.j == end.j) {
+                    done = true;
+                }
+            }
+
+            current = current.parent;
+            while (current != start && current != null && !noPath) {
+                current.insidecolor = 'white';
+                current.draw();
+                current = current.parent;
+            }
+        }
+
+        // A STAR
+        function ASTAR(start, end) {
+            reset();
+            start.g = 0;
+            var current = start;
+            var queue = [];
+            var ci, cj;
+            var noPath = false;
+            while (!done) {
+                ci = current.i;
+                cj = current.j;
+                for (var i = -1; i <= 1; i++) {
+                    for (var j = -1; j <= 1; j++) {
+                        if (ci + i > -1 && ci + i < rownmbr && cj + j > -1 && cj + j < colnmbr && !(i == 0 && j == 0)) {
+                            var temp = grid[ci + i][cj + j];
+                            if (!temp.wall && !temp.visited) {
+                                if (i == j || (i == -1 && j == 1) || (i == 1 && j == -1)) {
+                                    if (temp.g > current.g + 14) {
+                                        temp.g = current.g + 14;
+                                        if (temp.i > end.i) {
+                                            if (temp.j > end.j) {
+                                                temp.h = (temp.i - end.i) + (temp.j - end.j);
+                                            } else {
+                                                temp.h = (temp.i - end.i) + (end.j - temp.j);
+                                            }
+                                        } else {
+                                            if (temp.j > end.j) {
+                                                temp.h = (end.i - temp.i) + (temp.j - end.j);
+                                            } else {
+                                                temp.h = (end.i - temp.i) + (end.j - temp.j);
+                                            }
+                                        }
+                                        temp.insidecolor = 'purple';
+                                        temp.draw();
+                                        temp.parent = current;
+                                        temp.visited = true;
+                                        queue.push(temp);
+                                    }
+                                } else {
+                                    if (temp.g > current.g + 10) {
+                                        if (temp.i > end.i) {
+                                            if (temp.j > end.j) {
+                                                temp.h = (temp.i - end.i) + (temp.j - end.j);
+                                            } else {
+                                                temp.h = (temp.i - end.i) + (end.j - temp.j);
+                                            }
+                                        } else {
+                                            if (temp.j > end.j) {
+                                                temp.h = (end.i - temp.i) + (temp.j - end.j);
+                                            } else {
+                                                temp.h = (end.i - temp.i) + (end.j - temp.j);
+                                            }
+                                        }
+                                        temp.g = current.g + 10;
+                                        temp.insidecolor = 'purple';
+                                        temp.draw();
+                                        temp.parent = current;
+                                        temp.visited = true;
+                                        queue.push(temp);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                sortqueue(queue, true);
+                current.visited = true;
+                if (!done) {
+                    if (queue.length > 0) {
+                        current = queue.shift();
+                    } else {
+                        done = true;
+                        noPath = true;
+                    }
+                }
+                if (current.i == end.i && current.j == end.j) {
+                    done = true;
+                }
+            }
+
+            current = current.parent;
+            while (current != start && current != null && !noPath) {
+                current.insidecolor = 'white';
+                current.draw();
+                current = current.parent;
+            }
+        }
+
+
+        // MAIN FUNCTION
+        function game() {
+
+            if (!done) {
+
+                // CLEARING CANVAS
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // REDRAWING CANVAS
+                reset();
+                for (i = 0; i < rownmbr; i++) {
+                    for (j = 0; j < colnmbr; j++) {
+                        grid[i][j].draw();
+                    }
+                }
+                placeA.draw();
+                placeB.draw();
+
+                // APPLYING THE ALGORITHMS
+                if (currentA != null && currentB != null) {
+                    if (selectBtn.value == 1) {
+                        ASTAR(currentA, currentB);
+                    } else if (selectBtn.value == 2) {
+                        DIJKSTRA(currentA, currentB);
+                    } else if (selectBtn.value == 3) {
+                        BFS(currentA, currentB);
+                    } else {
+                        DFS(currentA, currentB);
+                    }
+                }
+            }
+
+
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: black;
+        }
+
+        #algo {
+            float: left;
+            width: 9%;
+            height: 5%;
+        }
+
+        #canvas {
+            background-color: white;
+            float: right;
+            margin-top: 1%;
+            margin-right: 29%;
+        }
+    </style>
+
+</body>
+
+</html>
